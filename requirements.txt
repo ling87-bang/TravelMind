@@ -1,0 +1,58 @@
+# ============== 核心框架 ==============
+langchain==1.2.0
+langchain-community==0.4.1
+langchain-core~=1.2.7
+langgraph==1.0.5
+langgraph-checkpoint==3.0.1
+langgraph-checkpoint-postgres==3.0.2
+langsmith==0.4.59
+
+# ============== LLM 集成 ==============
+dashscope==1.25.4                 # 千问 SDK
+
+# ============== 数据库 ==============
+psycopg[binary,pool]==3.3.2       # PostgreSQL（必须安装 binary 版本）
+redis==5.0.0                      # Redis 客户端
+chromadb==0.5.23                  # 向量数据库
+
+# ============== Web 框架 ==============
+fastapi==0.124.4
+uvicorn[standard]>=0.35.0
+websockets>=15.0.1
+python-multipart==0.0.20          # 文件上传
+aiofiles==24.1.0                  # 异步文件操作
+asyncpg>=0.29.0
+
+
+# ============== RAG 相关 ==============
+langchain-chroma>=0.1.4           # Chroma 集成
+chromadb>=0.5.0
+sentence-transformers==3.3.0      # 本地 Embedding（可选）
+rank-bm25==0.2.2                  # BM25 检索
+jieba==0.42.1                     # 中文分词
+
+# ============== MCP 相关 ==============
+langchain-mcp-adapters==0.2.1     # MCP 客户端
+fastmcp==2.13.1                   # MCP 服务端（自建服务用）
+
+# ============== 工具库 ==============
+pydantic==2.12.5                  # 数据验证
+pydantic-settings==2.12.0         # 配置管理
+python-dotenv==1.2.1              # 环境变量
+tenacity==9.1.2                   # 重试机制
+httpx==0.28.1                     # HTTP 客户端
+aiohttp==3.13.2                   # 异步 HTTP
+
+# ============== 监控与日志 ==============
+loguru==0.7.2                     # 增强日志
+prometheus-client==0.21.0         # 指标监控（可选）
+SQLAlchemy~=2.0.45
+langchain-text-splitters~=1.1.0
+typing_extensions~=4.15.0
+Jinja2~=3.1.6
+psycopg-pool~=3.3.0
+bcrypt~=5.0.0
+PyJWT~=2.10.1
+langchain-openai~=1.1.7
+pytest~=9.0.2
+pytest-asyncio~=1.3.0

@@ -1,0 +1,2 @@
+# Keep LangGraph's split packages compatible with the pinned core version.
+langgraph-prebuilt==1.0.5

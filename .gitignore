@@ -1,0 +1,47 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.uv-cache/
+.uv-python/
+
+# Local tooling and workspaces
+.claude/
+*.code-workspace
+
+# Runtime artifacts
+logs/
+**/logs/
+*.log
+hs_err_pid*.log
+
+# Local data and databases
+data/vectorstore/
+*.sqlite3
+
+# Generated and private artifacts
+tmp/
+output/
+resume_render/
+*.docx
+*.pdf
+tools/build_resume.py
+tools/build_resume_pdf.py
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

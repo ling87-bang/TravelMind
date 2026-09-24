@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+@Time    : 2026/1/13 16:54
+@Author  : GGBOND
+@File    : messages.py
+@Software: PyCharm
+"""
+"""
+消息模型
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import String, Text, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
+from app.models.base import Base
+
+
+class Message(Base):
+    """消息表"""
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversation.id", ondelete="CASCADE"),
+        index=True
+    )
+
+    # 角色：user, assistant, system
+    role: Mapped[str] = mapped_column(String(20), index=True)
+
+    # 消息内容
+    content: Mapped[str] = mapped_column(Text)
+
+    # 元数据（JSON 格式）
+    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        index=True
+    )
+
+    # 关系
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")

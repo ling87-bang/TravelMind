@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -c constraints.txt -r requirements.txt
+      - name: Compile source
+        run: python -m compileall -q app scripts
+      - name: Run unit tests
+        env:
+          DASHSCOPE_API_KEY: test-key
+          POSTGRES_DB: travel_planner
+          POSTGRES_USER: travel
+          POSTGRES_PASSWORD: travel123
+          JWT_SECRET_KEY: ci-only-secret
+          LANGSMITH_TRACING: "false"
+        run: pytest -q tests/test_state_transitions_unit.py
