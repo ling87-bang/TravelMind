@@ -40,7 +40,7 @@ class DocumentManager:
             str(destinations_dir),
             glob="**/*.md",
             loader_cls=TextLoader,
-            loader_kwargs={"autodetect_encoding": True}
+            loader_kwargs={"encoding": "utf-8"}
         )
 
         documents = loader.load()

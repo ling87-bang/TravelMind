@@ -1,121 +1,118 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-@Time    : 2026/1/14 14:29
-@Author  : GGBOND
-@File    : test_chat_api.py
-@Software: PyCharm
-"""
+"""API contract tests with isolated database and agent dependencies."""
+
 import json
+import uuid
+from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from langchain_core.messages import AIMessageChunk
 
-"""
-聊天 API 测试
-"""
-from httpx import AsyncClient, ASGITransport
+from app.api.dependencies import get_current_user
 from app.main import app
+from app.models.base import get_db
+from app.models.conversation import Conversation
+
+
+class FakeResult:
+    def __init__(self, value):
+        self.value = value
+
+    def scalar_one_or_none(self):
+        return self.value
+
+
+class FakeSession:
+    def __init__(self):
+        self.conversation = None
+
+    def add(self, value):
+        if isinstance(value, Conversation):
+            self.conversation = value
+
+    async def commit(self):
+        return None
+
+    async def refresh(self, value):
+        now = datetime.now(timezone.utc)
+        value.id = getattr(value, "id", None) or uuid.uuid4()
+        value.extra_info = getattr(value, "extra_info", None) or {}
+        value.created_at = getattr(value, "created_at", None) or now
+        value.updated_at = getattr(value, "updated_at", None) or now
+
+    async def execute(self, _statement):
+        return FakeResult(self.conversation)
 
 
 @pytest_asyncio.fixture
-async def client():
-    """创建测试客户端"""
+async def api_client():
+    session = FakeSession()
+    user = SimpleNamespace(id=uuid.uuid4())
+
+    async def override_db():
+        yield session
+
+    async def override_user():
+        return user
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client, session
+    app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
-async def test_create_conversation(client: AsyncClient):
-    """测试创建会话"""
-
-    response = await client.post(
-        "/api/v1/conversations/",
-        json={"title": "测试会话"},
-        headers={"X-User-ID": "test_user"}
-    )
-
+async def test_create_conversation(api_client):
+    client, _session = api_client
+    response = await client.post("/api/v1/conversations", json={"title": "测试会话"})
     assert response.status_code == 200
-    data = response.json()
-    assert data["code"] == 0
-    assert "conv_" in data["data"]["id"]
+    assert response.json()["title"] == "测试会话"
 
 
 @pytest.mark.asyncio
-async def test_send_message_validation(client: AsyncClient):
-    """测试消息验证"""
-
-    # 空消息应该失败
+async def test_send_message_validation(api_client):
+    client, _session = api_client
     response = await client.post(
-        "/api/v1/chat/",
-        json={
-            "conversation_id": "conv_test",
-            "message": "   ",  # 只有空格
-            "stream": False
-        },
-        headers={"X-User-ID": "test_user"}
+        f"/api/v1/chat/stream/{uuid.uuid4()}",
+        json={"content": "   "},
     )
-
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_conversation(client: AsyncClient):
-    """测试获取不存在的会话"""
-
-    response = await client.get(
-        "/api/v1/conversations/conv_nonexistent",
-        headers={"X-User-ID": "test_user"}
-    )
-
+async def test_get_nonexistent_conversation(api_client):
+    client, _session = api_client
+    response = await client.get(f"/api/v1/conversations/{uuid.uuid4()}")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_stream_response(client: AsyncClient):
-    """测试流式响应"""
+async def test_stream_response(api_client, monkeypatch):
+    client, session = api_client
+    created = await client.post("/api/v1/conversations", json={})
+    conversation_id = created.json()["id"]
 
-    # 先创建会话
-    create_resp = await client.post(
-        "/api/v1/conversations/",
-        json={},
-        headers={"X-User-ID": "test_user"}
+    class FakeAgent:
+        async def astream_events(self, *_args, **_kwargs):
+            yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="你好")}}
+
+    async def fake_create_agent():
+        return FakeAgent()
+
+    monkeypatch.setattr("app.api.v1.chat.create_travel_agent", fake_create_agent)
+    response = await client.post(
+        f"/api/v1/chat/stream/{conversation_id}",
+        json={"content": "你好"},
     )
-    conv_id = create_resp.json()["data"]["id"]
-
-    # 发送流式请求
-    async with client.stream(
-            "POST",
-            "/api/v1/chat/",
-            json={
-                "conversation_id": conv_id,
-                "message": "你好",
-                "stream": True
-            },
-            headers={"X-User-ID": "test_user"}
-    ) as response:
-        events = []
-        async for line in response.aiter_lines():
-            line = line.strip()
-            if not line:
-                continue
-
-            if line.startswith("data:"):
-                # 剥离第一个 "data:"
-                content = line.split(":", 1)[1].strip()
-
-                # 再次检查并剥离可能存在的第二个 "data:" (修复双重前缀问题)
-                if content.startswith("data:"):
-                    content = content.split(":", 1)[1].strip()
-
-                if content and content != "[DONE]":
-                    try:
-                        events.append(json.loads(content))
-                    except json.JSONDecodeError:
-                        print(f"Skipping invalid JSON: {content}")
-
-        # 验证事件序列
-        event_types = [e["type"] for e in events]
-        assert "start" in event_types
-        assert "done" in event_types
+    assert response.status_code == 200
+    events = [
+        json.loads(line.removeprefix("data: "))
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+    assert [event["type"] for event in events] == ["token", "done"]
+    assert session.conversation is not None
