@@ -1,0 +1,36 @@
+name: knowgo-demo
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: travel_planner_db
+      POSTGRES_USER: knowgo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/configure_local.py first}
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - knowgo_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knowgo -d travel_planner_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:16379:6379"
+    volumes:
+      - knowgo_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  knowgo_postgres:
+  knowgo_redis:
